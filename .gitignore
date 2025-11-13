@@ -1,0 +1,11 @@
+# macOS
+.DS_Store
+
+# Temporary files
+*.tmp
+*.log
+
+# Downloaded releases (will be uploaded to GitHub Releases)
+*.dmg
+*.zip
+*.pkg
