@@ -5,7 +5,7 @@ This repository hosts the public releases for Electron Content Coach, a desktop 
 ## 🚀 Quick Install
 
 ```bash
-curl -s https://raw.githubusercontent.com/YOUR_USERNAME/Electron-Content-Coach-Releases/main/install.sh | bash
+curl -s https://raw.githubusercontent.com/jazonh/Electron-Content-Coach-Releases/main/install.sh | bash
 ```
 
 ## 📱 What is Electron Content Coach?
@@ -38,7 +38,7 @@ If you already have Electron Content Coach installed, it will automatically noti
 
 ## 📥 Manual Installation
 
-1. Download the latest release DMG file from the [Releases page](https://github.com/YOUR_USERNAME/Electron-Content-Coach-Releases/releases)
+1. Download the latest release DMG file from the [Releases page](https://github.com/jazonh/Electron-Content-Coach-Releases/releases)
 2. Open the DMG file
 3. Drag "Electron Next App" to your Applications folder
 4. Right-click the app and select "Open" (to bypass macOS Gatekeeper on first run)

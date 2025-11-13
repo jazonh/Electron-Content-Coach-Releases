@@ -11,7 +11,7 @@ echo "=========================================="
 echo ""
 
 # Configuration
-REPO="YOUR_USERNAME/Electron-Content-Coach-Releases"
+REPO="jazonh/Electron-Content-Coach-Releases"
 APP_NAME="Electron Next App"
 TEMP_DIR="/tmp/electron-content-coach-install"
 
@@ -149,7 +149,7 @@ echo "   • GPT-5 Mini reasoning model provides intelligent tone correction"
 echo "   • Get 3 alternative versions with different approaches"
 echo ""
 echo "🔗 **Resources:**"
-echo "   • GitHub: https://github.com/YOUR_USERNAME/Electron-Content-Coach"
+echo "   • GitHub: https://github.com/jazonh/Electron-Content-Coach"
 echo "   • Releases: https://github.com/$REPO"
 echo ""
 echo "✨ Installation complete - enjoy your enhanced brand communication!"

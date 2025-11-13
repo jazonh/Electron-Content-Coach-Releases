@@ -5,7 +5,7 @@
 The fastest way to install Electron Content Coach is using our automated installer:
 
 ```bash
-curl -s https://raw.githubusercontent.com/YOUR_USERNAME/Electron-Content-Coach-Releases/main/install.sh | bash
+curl -s https://raw.githubusercontent.com/jazonh/Electron-Content-Coach-Releases/main/install.sh | bash
 ```
 
 This script will:
@@ -19,7 +19,7 @@ This script will:
 If you prefer to install manually:
 
 ### Step 1: Download
-1. Go to the [Releases page](https://github.com/YOUR_USERNAME/Electron-Content-Coach-Releases/releases)
+1. Go to the [Releases page](https://github.com/jazonh/Electron-Content-Coach-Releases/releases)
 2. Download the latest `Electron-Content-Coach-v[VERSION].dmg` file
 
 ### Step 2: Install
