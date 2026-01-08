@@ -1,17 +1,12 @@
 #!/usr/bin/env bash
 
 # Content Coach Installation Script (macOS)
-# - No sudo required (installs per-user if /Applications is not writable)
-# - Quits any running instance
-# - Removes quarantine attributes
+# Downloads the DMG and opens it for manual drag-and-drop install
 
 set -euo pipefail
 
 VERSION="${1:-latest}"
 REPO="jazonh/Electron-Content-Coach-Releases"
-APP_BUNDLE_NAME="Content-Coach.app"
-APP_PROCESS_1="Content-Coach"
-APP_PROCESS_2="Content Coach"
 
 log() { printf "%s %s\n" "$1" "$2"; }
 
@@ -28,58 +23,8 @@ fetch_latest_tag() {
   printf "%s" "$tag"
 }
 
-quit_running_app() {
-  log "🛑" "Quitting any running Content Coach instances..."
-
-  /usr/bin/osascript -e "try" -e "tell application \"$APP_PROCESS_1\" to quit" -e "end try" >/dev/null 2>&1 || true
-  /usr/bin/osascript -e "try" -e "tell application \"$APP_PROCESS_2\" to quit" -e "end try" >/dev/null 2>&1 || true
-
-  /usr/bin/pkill -x "$APP_PROCESS_1" >/dev/null 2>&1 || true
-  /usr/bin/pkill -x "$APP_PROCESS_2" >/dev/null 2>&1 || true
-
-  for _ in {1..50}; do
-    if ! /usr/bin/pgrep -x "$APP_PROCESS_1" >/dev/null 2>&1 && ! /usr/bin/pgrep -x "$APP_PROCESS_2" >/dev/null 2>&1; then
-      break
-    fi
-    /bin/sleep 0.2
-  done
-}
-
-mount_dmg() {
-  local dmg="$1" attach_out mount_point
-
-  # Tab-delimited output; mount point can contain spaces.
-  attach_out=$(hdiutil attach "$dmg" -nobrowse -readonly)
-  mount_point=$(printf "%s\n" "$attach_out" | awk -F"\t" "/\\/Volumes\\// {print \$NF; exit}")
-
-  [[ -n "$mount_point" ]] || die "Failed to determine DMG mount point"
-  printf "%s" "$mount_point"
-}
-
-find_app_in_mount() {
-  local mount_point="$1" app
-
-  if [[ -d "$mount_point/$APP_BUNDLE_NAME" ]]; then
-    printf "%s" "$mount_point/$APP_BUNDLE_NAME"
-    return 0
-  fi
-
-  app=$(find "$mount_point" -maxdepth 1 -name "*.app" -print -quit)
-  [[ -n "$app" ]] || die "Could not find an .app in mounted DMG at $mount_point"
-  printf "%s" "$app"
-}
-
-choose_install_dir() {
-  # Prefer /Applications if it is writable; otherwise install per-user.
-  if [[ -w "/Applications" ]]; then
-    printf "%s" "/Applications"
-  else
-    printf "%s" "$HOME/Applications"
-  fi
-}
-
 main() {
-  log "📦" "Installing Content Coach..."
+  log "📦" "Content Coach Installer"
 
   if [[ "$VERSION" == "latest" ]]; then
     log "🔍" "Fetching latest version..."
@@ -89,46 +34,25 @@ main() {
 
   local dmg_name="Content-Coach-${VERSION#v}-arm64.dmg"
   local download_url="https://github.com/$REPO/releases/download/$VERSION/$dmg_name"
+  local downloads_dir="$HOME/Downloads"
+  local dmg_path="$downloads_dir/$dmg_name"
 
-  log "📥" "Downloading $dmg_name..."
-  local tmp_dir dmg_path mount_point app_source install_dir install_path
-  tmp_dir=$(mktemp -d)
-  dmg_path="$tmp_dir/$dmg_name"
-
+  log "📥" "Downloading $dmg_name to ~/Downloads..."
   curl -fL --retry 3 --retry-delay 1 -o "$dmg_path" "$download_url"
   log "✓" "Download complete"
 
-  log "🔓" "Removing quarantine attribute from DMG..."
+  log "🔓" "Removing quarantine attribute..."
   /usr/bin/xattr -cr "$dmg_path" || true
 
-  quit_running_app
+  log "💿" "Opening DMG..."
+  open "$dmg_path"
 
-  log "💿" "Mounting DMG..."
-  mount_point=$(mount_dmg "$dmg_path")
-
-  app_source=$(find_app_in_mount "$mount_point")
-
-  install_dir=$(choose_install_dir)
-  install_path="$install_dir/$APP_BUNDLE_NAME"
-
-  log "📂" "Installing to $install_dir..."
-  /bin/mkdir -p "$install_dir"
-  /bin/rm -rf "$install_path"
-  /usr/bin/ditto "$app_source" "$install_path"
-
-  log "🔓" "Removing quarantine from installed app..."
-  /usr/bin/xattr -cr "$install_path" || true
-
-  log "🧹" "Cleaning up..."
-  hdiutil detach "$mount_point" -quiet || hdiutil detach "$mount_point" -force -quiet || true
-  /bin/rm -rf "$tmp_dir"
-
-  log "✅" "Content Coach installed successfully!"
-  log "🚀" "Launch: open \"$install_path\""
-
-  if [[ "$install_dir" != "/Applications" ]]; then
-    log "ℹ️" "Installed per-user because /Applications isn’t writable without admin."
-  fi
+  echo ""
+  log "✅" "DMG opened in Finder!"
+  log "📂" "Drag Content-Coach.app to your Applications folder"
+  log "💡" "If updating: quit the running app first, then replace it"
+  echo ""
+  log "🚀" "After installing, launch from /Applications/Content-Coach.app"
 }
 
 main "$@"
