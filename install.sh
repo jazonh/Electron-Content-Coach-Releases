@@ -32,7 +32,8 @@ main() {
     log "✓" "Latest version: $VERSION"
   fi
 
-  local dmg_name="Content Coach-${VERSION#v}-arm64.dmg"
+  # GitHub converts spaces to dots in asset filenames
+  local dmg_name="Content.Coach-${VERSION#v}-arm64.dmg"
   local download_url="https://github.com/$REPO/releases/download/$VERSION/$dmg_name"
   local downloads_dir="$HOME/Downloads"
   local dmg_path="$downloads_dir/$dmg_name"
