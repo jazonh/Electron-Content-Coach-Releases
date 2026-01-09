@@ -32,7 +32,7 @@ main() {
     log "✓" "Latest version: $VERSION"
   fi
 
-  local dmg_name="Content-Coach-${VERSION#v}-arm64.dmg"
+  local dmg_name="Content Coach-${VERSION#v}-arm64.dmg"
   local download_url="https://github.com/$REPO/releases/download/$VERSION/$dmg_name"
   local downloads_dir="$HOME/Downloads"
   local dmg_path="$downloads_dir/$dmg_name"
@@ -49,10 +49,10 @@ main() {
 
   echo ""
   log "✅" "DMG opened in Finder!"
-  log "📂" "Drag Content-Coach.app to your Applications folder"
+  log "📂" "Drag Content Coach.app to your Applications folder"
   log "💡" "If updating: quit the running app first, then replace it"
   echo ""
-  log "🚀" "After installing, launch from /Applications/Content-Coach.app"
+  log "🚀" "After installing, launch from /Applications/Content Coach.app"
 }
 
 main "$@"
