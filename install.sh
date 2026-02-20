@@ -10,17 +10,25 @@ VERSION="${1:-latest}"
 REPO="jazonh/Electron-Content-Coach-Releases"
 APP_NAME="Content Coach"
 INSTALL_DIR="$HOME/Applications"
-DOWNLOADS_DIR="$HOME/Downloads"
+WORK_DIR="$(mktemp -d)"
 
 log()  { printf "%s %s\n" "$1" "$2"; }
 die()  { log "❌" "$1"; exit 1; }
+cleanup() { rm -rf "$WORK_DIR" 2>/dev/null || true; }
+trap cleanup EXIT
 
 check_vpn() {
   local vpn_active=false
-  if scutil --nwi 2>/dev/null | grep -qi 'utun\|ipsec\|vpn'; then
+  if scutil --nwi 2>/dev/null | grep -qi 'ipsec\|vpn'; then
     vpn_active=true
-  elif ifconfig 2>/dev/null | grep -q 'utun'; then
-    vpn_active=true
+  elif networksetup -listallnetworkservices 2>/dev/null | grep -qi 'vpn\|cisco\|globalprotect\|zscaler\|pulse'; then
+    local svc
+    while IFS= read -r svc; do
+      if networksetup -showpppoestatus "$svc" 2>/dev/null | grep -qi 'connected'; then
+        vpn_active=true
+        break
+      fi
+    done < <(networksetup -listallnetworkservices 2>/dev/null | grep -i 'vpn\|cisco\|globalprotect\|zscaler\|pulse')
   fi
 
   if $vpn_active; then
@@ -69,7 +77,7 @@ main() {
   local ver_num="${VERSION#v}"
   local dmg_name="Content-Coach-${ver_num}-arm64.dmg"
   local download_url="https://github.com/$REPO/releases/download/$VERSION/$dmg_name"
-  local dmg_path="$DOWNLOADS_DIR/$dmg_name"
+  local dmg_path="$WORK_DIR/$dmg_name"
   local app_src app_dest
 
   log "📥" "Downloading $dmg_name..."
@@ -106,7 +114,6 @@ main() {
 
   log "💿" "Cleaning up..."
   hdiutil detach "$mount_point" -quiet 2>/dev/null || true
-  rm -f "$dmg_path"
 
   echo ""
   log "✅" "Content Coach $VERSION installed!"
