@@ -40,13 +40,23 @@ check_vpn() {
   fi
 }
 
-fetch_latest_tag() {
-  local info tag
-  info=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest") \
+fetch_release_info() {
+  RELEASE_JSON=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest") \
     || die "Could not reach GitHub API. Are you connected to the internet (and off VPN)?"
-  tag=$(printf "%s" "$info" | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)
+}
+
+parse_tag() {
+  local tag
+  tag=$(printf "%s" "$RELEASE_JSON" | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)
   [[ -n "$tag" ]] || die "Could not determine latest version"
   printf "%s" "$tag"
+}
+
+find_dmg_url() {
+  local url
+  url=$(printf "%s" "$RELEASE_JSON" | grep '"browser_download_url"' | grep -i 'arm64\.dmg"' | sed -E 's/.*"(https[^"]+)".*/\1/' | head -n 1)
+  [[ -n "$url" ]] || die "No arm64 DMG found in release assets"
+  printf "%s" "$url"
 }
 
 quit_running_app() {
@@ -68,17 +78,20 @@ main() {
 
   check_vpn
 
+  log "🔍" "Fetching release info..."
+  fetch_release_info
+
   if [[ "$VERSION" == "latest" ]]; then
-    log "🔍" "Fetching latest version..."
-    VERSION=$(fetch_latest_tag)
+    VERSION=$(parse_tag)
     log "✓"  "Latest version: $VERSION"
   fi
 
-  local ver_num="${VERSION#v}"
-  local dmg_name="Content-Coach-${ver_num}-arm64.dmg"
-  local download_url="https://github.com/$REPO/releases/download/$VERSION/$dmg_name"
-  local dmg_path="$WORK_DIR/$dmg_name"
+  local download_url dmg_name dmg_path
   local app_src app_dest
+
+  download_url=$(find_dmg_url)
+  dmg_name="${download_url##*/}"
+  dmg_path="$WORK_DIR/$dmg_name"
 
   log "📥" "Downloading $dmg_name..."
   curl -fL --retry 3 --retry-delay 2 --progress-bar -o "$dmg_path" "$download_url" \

@@ -5,7 +5,7 @@ This repository hosts the public releases for Electron Content Coach, a desktop 
 ## 🚀 Quick Install
 
 ```bash
-curl -s https://raw.githubusercontent.com/jazonh/Electron-Content-Coach-Releases/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/jazonh/Electron-Content-Coach-Releases/main/install.sh | bash
 ```
 
 ## 📱 What is Electron Content Coach?
