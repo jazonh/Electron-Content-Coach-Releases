@@ -1,58 +1,131 @@
 #!/usr/bin/env bash
 
-# Content Coach Installation Script (macOS)
-# Downloads the DMG and opens it for manual drag-and-drop install
+# Content Coach Installer (macOS)
+# No sudo, no admin rights, no manual drag-and-drop.
+# Usage: curl -fsSL https://raw.githubusercontent.com/jazonh/Electron-Content-Coach-Releases/main/install.sh | bash
 
 set -euo pipefail
 
 VERSION="${1:-latest}"
 REPO="jazonh/Electron-Content-Coach-Releases"
+APP_NAME="Content Coach"
+INSTALL_DIR="$HOME/Applications"
+DOWNLOADS_DIR="$HOME/Downloads"
 
-log() { printf "%s %s\n" "$1" "$2"; }
+log()  { printf "%s %s\n" "$1" "$2"; }
+die()  { log "❌" "$1"; exit 1; }
 
-die() {
-  log "❌" "$1"
-  exit 1
+check_vpn() {
+  local vpn_active=false
+  if scutil --nwi 2>/dev/null | grep -qi 'utun\|ipsec\|vpn'; then
+    vpn_active=true
+  elif ifconfig 2>/dev/null | grep -q 'utun'; then
+    vpn_active=true
+  fi
+
+  if $vpn_active; then
+    echo ""
+    log "⚠️"  "VPN appears to be active."
+    log "📡" "GitHub downloads often fail on corporate VPN."
+    log "💡" "If the download fails, disconnect VPN and re-run this script."
+    echo ""
+  fi
 }
 
 fetch_latest_tag() {
   local info tag
-  info=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest")
-  tag=$(printf "%s" "$info" | sed -n "s/.*\"tag_name\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p" | head -n 1)
-  [[ -n "$tag" ]] || die "Could not determine latest version (tag_name missing)"
+  info=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest") \
+    || die "Could not reach GitHub API. Are you connected to the internet (and off VPN)?"
+  tag=$(printf "%s" "$info" | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)
+  [[ -n "$tag" ]] || die "Could not determine latest version"
   printf "%s" "$tag"
+}
+
+quit_running_app() {
+  if pgrep -xq "$APP_NAME"; then
+    log "🛑" "Content Coach is running — quitting it now..."
+    osascript -e "tell application \"$APP_NAME\" to quit" 2>/dev/null || true
+    sleep 2
+    if pgrep -xq "$APP_NAME"; then
+      pkill -x "$APP_NAME" 2>/dev/null || true
+      sleep 1
+    fi
+    log "✓" "App closed"
+  fi
 }
 
 main() {
   log "📦" "Content Coach Installer"
+  echo ""
+
+  check_vpn
 
   if [[ "$VERSION" == "latest" ]]; then
     log "🔍" "Fetching latest version..."
     VERSION=$(fetch_latest_tag)
-    log "✓" "Latest version: $VERSION"
+    log "✓"  "Latest version: $VERSION"
   fi
 
-  local dmg_name="Content-Coach-${VERSION#v}-arm64.dmg"
+  local ver_num="${VERSION#v}"
+  local dmg_name="Content-Coach-${ver_num}-arm64.dmg"
   local download_url="https://github.com/$REPO/releases/download/$VERSION/$dmg_name"
-  local downloads_dir="$HOME/Downloads"
-  local dmg_path="$downloads_dir/$dmg_name"
+  local dmg_path="$DOWNLOADS_DIR/$dmg_name"
+  local app_src app_dest
 
-  log "📥" "Downloading $dmg_name to ~/Downloads..."
-  curl -fL --retry 3 --retry-delay 1 -o "$dmg_path" "$download_url"
+  log "📥" "Downloading $dmg_name..."
+  curl -fL --retry 3 --retry-delay 2 --progress-bar -o "$dmg_path" "$download_url" \
+    || die "Download failed. If on VPN, disconnect and try again."
   log "✓" "Download complete"
 
-  log "🔓" "Removing quarantine attribute..."
-  /usr/bin/xattr -cr "$dmg_path" || true
+  log "🔓" "Removing quarantine flag..."
+  /usr/bin/xattr -cr "$dmg_path" 2>/dev/null || true
 
-  log "💿" "Opening DMG..."
-  open "$dmg_path"
+  log "💿" "Mounting DMG..."
+  local mount_output mount_point
+  mount_output=$(hdiutil attach "$dmg_path" -nobrowse -noverify -noautoopen 2>&1) \
+    || die "Failed to mount DMG"
+  mount_point=$(echo "$mount_output" | grep -o '/Volumes/.*' | head -n 1)
+  [[ -d "$mount_point" ]] || die "Could not find mount point"
+
+  app_src=$(find "$mount_point" -maxdepth 1 -name "*.app" | head -n 1)
+  [[ -d "$app_src" ]] || { hdiutil detach "$mount_point" -quiet 2>/dev/null; die "No .app found in DMG"; }
+
+  quit_running_app
+
+  mkdir -p "$INSTALL_DIR"
+  app_dest="$INSTALL_DIR/$APP_NAME.app"
+
+  if [[ -d "$app_dest" ]]; then
+    log "♻️"  "Removing previous version..."
+    rm -rf "$app_dest"
+  fi
+
+  log "📂" "Installing to ~/Applications..."
+  cp -R "$app_src" "$app_dest"
+  /usr/bin/xattr -cr "$app_dest" 2>/dev/null || true
+
+  log "💿" "Cleaning up..."
+  hdiutil detach "$mount_point" -quiet 2>/dev/null || true
+  rm -f "$dmg_path"
 
   echo ""
-  log "✅" "DMG opened in Finder!"
-  log "📂" "Drag Content Coach.app to your Applications folder"
-  log "💡" "If updating: quit the running app first, then replace it"
+  log "✅" "Content Coach $VERSION installed!"
+  log "📍" "Location: ~/Applications/$APP_NAME.app"
   echo ""
-  log "🚀" "After installing, launch from /Applications/Content Coach.app"
+
+  if [[ -t 0 ]]; then
+    read -rp "🚀 Launch Content Coach now? [Y/n] " answer
+    answer="${answer:-y}"
+  else
+    answer="y"
+  fi
+
+  if [[ "$answer" =~ ^[Yy]$ ]]; then
+    open "$app_dest"
+    log "🚀" "Launched!"
+  else
+    log "💡" "Run:  open ~/Applications/Content\\ Coach.app"
+  fi
 }
 
 main "$@"
