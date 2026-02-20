@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Content Coach Installer (macOS)
-# No sudo, no admin rights, no manual drag-and-drop.
+# Detects existing install location and replaces in-place. Uses sudo only for /Applications.
 # Usage: curl -fsSL https://raw.githubusercontent.com/jazonh/Electron-Content-Coach-Releases/main/install.sh | bash
 
 set -euo pipefail
@@ -9,7 +9,6 @@ set -euo pipefail
 VERSION="${1:-latest}"
 REPO="jazonh/Electron-Content-Coach-Releases"
 APP_NAME="Content Coach"
-INSTALL_DIR="$HOME/Applications"
 WORK_DIR="$(mktemp -d)"
 
 log()  { printf "%s %s\n" "$1" "$2"; }
@@ -113,24 +112,57 @@ main() {
 
   quit_running_app
 
-  mkdir -p "$INSTALL_DIR"
-  app_dest="$INSTALL_DIR/$APP_NAME.app"
-
-  if [[ -d "$app_dest" ]]; then
-    log "♻️"  "Removing previous version..."
-    rm -rf "$app_dest"
+  # Detect where the existing install lives; prefer /Applications (standard DMG target)
+  local install_dir use_sudo=false
+  if [[ -d "/Applications/$APP_NAME.app" ]]; then
+    install_dir="/Applications"
+    use_sudo=true
+  elif [[ -d "$HOME/Applications/$APP_NAME.app" ]]; then
+    install_dir="$HOME/Applications"
+  else
+    install_dir="/Applications"
+    use_sudo=true
   fi
 
-  log "📂" "Installing to ~/Applications..."
-  cp -R "$app_src" "$app_dest"
-  /usr/bin/xattr -cr "$app_dest" 2>/dev/null || true
+  app_dest="$install_dir/$APP_NAME.app"
+
+  if [[ -d "$app_dest" ]]; then
+    log "♻️"  "Removing previous version from $install_dir..."
+    if $use_sudo; then
+      sudo rm -rf "$app_dest"
+    else
+      rm -rf "$app_dest"
+    fi
+  fi
+
+  log "📂" "Installing to $install_dir..."
+  if $use_sudo; then
+    sudo cp -R "$app_src" "$app_dest"
+    sudo /usr/bin/xattr -cr "$app_dest" 2>/dev/null || true
+  else
+    mkdir -p "$install_dir"
+    cp -R "$app_src" "$app_dest"
+    /usr/bin/xattr -cr "$app_dest" 2>/dev/null || true
+  fi
+
+  # Clean up stale copy in the other location if it exists
+  local other_dir
+  if [[ "$install_dir" == "/Applications" && -d "$HOME/Applications/$APP_NAME.app" ]]; then
+    other_dir="$HOME/Applications/$APP_NAME.app"
+  elif [[ "$install_dir" == "$HOME/Applications" && -d "/Applications/$APP_NAME.app" ]]; then
+    other_dir="/Applications/$APP_NAME.app"
+  fi
+  if [[ -n "${other_dir:-}" ]]; then
+    log "🧹" "Removing stale copy at $other_dir..."
+    sudo rm -rf "$other_dir" 2>/dev/null || rm -rf "$other_dir" 2>/dev/null || true
+  fi
 
   log "💿" "Cleaning up..."
   hdiutil detach "$mount_point" -quiet 2>/dev/null || true
 
   echo ""
   log "✅" "Content Coach $VERSION installed!"
-  log "📍" "Location: ~/Applications/$APP_NAME.app"
+  log "📍" "Location: $app_dest"
   echo ""
 
   if [[ -t 0 ]]; then
@@ -144,7 +176,7 @@ main() {
     open "$app_dest"
     log "🚀" "Launched!"
   else
-    log "💡" "Run:  open ~/Applications/Content\\ Coach.app"
+    log "💡" "Run:  open \"$app_dest\""
   fi
 }
 
